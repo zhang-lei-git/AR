@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07151d"><title>AR产线透视</title><link rel="stylesheet" href="twin-terminal.css?v=3"></head>
+<body><main class="twin-ar-shell">
+  <header><div><span class="live-dot"></span><strong>AR产线透视</strong><small id="twinTerminalSource">连接产线数字孪生平台</small></div><div><span id="twinTerminalTime">--:--</span><span>模型与数据已同步</span></div></header>
+  <section class="twin-ar-view"><div id="twinThreeViewer" class="twin-three-viewer"></div><div class="scan-grid"></div>
+    <aside class="source-overlay"><span>数字孪生数据源</span><strong id="twinTerminalLine">液压支架总装一线</strong><small id="twinTerminalModel">模型加载中</small></aside>
+    <aside class="object-overlay"><span>当前查看对象</span><h1 id="twinTerminalObject">选择工位对象</h1><dl><div><dt>装配状态</dt><dd id="twinTerminalStatus">--</dd></div><div><dt>装配进度</dt><dd id="twinTerminalProgress">--</dd></div><div><dt>运行参数</dt><dd id="twinTerminalParameter">--</dd></div><div><dt>告警</dt><dd id="twinTerminalAlert">--</dd></div></dl></aside>
+    <div class="twin-ar-caption"><span>AR现场查看</span><strong>产线三维模型、工位对象、装配进度、运行参数和告警信息</strong><small>模型与实时数据由产线数字孪生平台提供，AR系统按对象编码关联展示</small></div>
+  </section>
+  <nav id="twinTerminalStations" class="station-selector"></nav>
+</main><script type="module" src="twin-viewer.js?v=3"></script><script src="twin-terminal.js?v=3"></script></body></html>

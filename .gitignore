@@ -1,0 +1,8 @@
+.env.local
+.DS_Store
+*.pyc
+data/*.db
+data/*.db-*
+data/backups/
+__pycache__/
+tests/__pycache__/

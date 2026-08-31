@@ -1,0 +1,11 @@
+services:
+  ar-demo:
+    build: .
+    ports:
+      - "8088:8088"
+    volumes:
+      - ar-demo-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  ar-demo-data:
