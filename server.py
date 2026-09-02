@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gzip
 import io
 import json
 import os
@@ -1015,14 +1016,21 @@ class DemoHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
-    def send_bytes(self, raw, content_type, filename=None):
+    def send_bytes(self, raw, content_type, filename=None, cache_control=None, compress=False):
+        accepts_gzip = "gzip" in self.headers.get("Accept-Encoding", "")
+        encoded = gzip.compress(raw, compresslevel=6) if compress and accepts_gzip and len(raw) > 512 else raw
         self.send_response(200)
         self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Content-Length", str(len(encoded)))
+        if encoded is not raw:
+            self.send_header("Content-Encoding", "gzip")
+            self.send_header("Vary", "Accept-Encoding")
+        if cache_control:
+            self.send_header("Cache-Control", cache_control)
         if filename:
             self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
         self.end_headers()
-        self.wfile.write(raw)
+        self.wfile.write(encoded)
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -1146,7 +1154,9 @@ class DemoHandler(BaseHTTPRequestHandler):
         if not target.is_file():
             return self.send_json({"error": "资源不存在"}, 404)
         mime = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "application/javascript; charset=utf-8", ".png": "image/png", ".mp4": "video/mp4", ".json": "application/json; charset=utf-8"}.get(target.suffix, "application/octet-stream")
-        self.send_bytes(target.read_bytes(), mime)
+        immutable = target.suffix in {".js", ".css", ".png", ".mp4"}
+        cache_control = "public, max-age=604800, immutable" if immutable else "no-cache"
+        self.send_bytes(target.read_bytes(), mime, cache_control=cache_control, compress=target.suffix in {".html", ".css", ".js", ".json"})
 
 
 def make_server(host="127.0.0.1", port=8088, db_path=DB_PATH, quiet=False, enable_external=True):

@@ -202,6 +202,10 @@ button { cursor: pointer; }
 .work-visual img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .three-viewer { position: absolute; inset: 0; background: #102631; touch-action: none; }
 .three-viewer canvas { width: 100%; height: 100%; display: block; }
+.three-preview { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .56; filter: saturate(.82) brightness(.7); }
+.three-loading { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); min-width: 270px; padding: 15px 18px; border: 1px solid #4c6a77; background: rgba(8,25,34,.88); color: #eef5f7; display: grid; gap: 5px; text-align: center; box-shadow: 0 8px 25px rgba(0,0,0,.25); }
+.three-loading strong { font-size: 13px; }.three-loading span { font-size: 10px; color: #b2c8d0; }
+.three-viewer.ready .three-preview,.three-viewer.ready .three-loading { display: none; }
 .three-viewer::after { content: "拖动旋转 · 滚轮缩放 · 三维内容 V2.0"; position: absolute; right: 14px; top: 12px; padding: 6px 8px; background: rgba(8,25,34,.78); border: 1px solid #4c6a77; color: #dfecef; font-size: 10px; pointer-events: none; }
 .ar-hud { position: absolute; left: 18px; right: 18px; bottom: 16px; min-height: 56px; padding: 10px 14px; background: rgba(10, 25, 34, .88); border: 1px solid rgba(78, 205, 201, .65); color: #fff; display: flex; gap: 15px; align-items: center; }
 .ar-hud span { color: #6ee1dd; font-size: 12px; font-weight: 800; }

@@ -32,6 +32,22 @@
     guideAction: null,
   };
   let toastTimer;
+  let threeViewerPromise = null;
+
+  async function ensureWorkOrderViewer() {
+    if (threeViewerPromise) return threeViewerPromise;
+    const viewer = $('threeViewer');
+    if (!viewer) return null;
+    threeViewerPromise = import('./three-viewer.js?v=25').then(() => {
+      viewer.classList.add('ready');
+      const step = state.data?.task?.steps?.[state.selectedStep - 1];
+      if (step) dispatchEvent(new CustomEvent('ar-stage-changed', {detail:{stage:step.step_no,media:step.media}}));
+    }).catch(error => {
+      threeViewerPromise = null;
+      toast(`三维内容加载失败：${error.message}`, 'danger');
+    });
+    return threeViewerPromise;
+  }
 
   function toast(message, kind='') {
     const el = $('toast');
@@ -74,6 +90,7 @@
     document.querySelectorAll('.view').forEach(el => el.classList.toggle('active', el.id === `${view}View`));
     document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view));
     scrollTo({top:0, behavior:'smooth'});
+    if (view === 'workorder') ensureWorkOrderViewer();
   }
 
   async function selectTask(id) {
