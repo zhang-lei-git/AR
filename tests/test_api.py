@@ -63,6 +63,8 @@ class ApiTestCase(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("AR生产现场作业支撑平台".encode(), page)
         self.assertIn("新建装配工单".encode(), page)
+        self.assertIn(b"expertArFeed", page)
+        self.assertIn("AR眼镜第一视角实时画面".encode(), page)
         status, terminal = self.request("/terminal.html", raw=True)
         self.assertEqual(status, 200)
         self.assertIn("AR眼镜端模拟器".encode(), terminal)

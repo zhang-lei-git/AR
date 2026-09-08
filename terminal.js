@@ -4,6 +4,7 @@
   const params=new URLSearchParams(location.search),taskId=params.get('task_id')||'WO-HYD-2026-0828-017';
   let data=null,toastTimer;
   if(params.get('embed')==='1')document.body.classList.add('embedded');
+  if(params.get('view')==='expert-feed')document.body.classList.add('expert-feed');
   const esc=value=>String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   async function api(path,options={}){const response=await fetch(path,{...options,headers:{'Content-Type':'application/json','X-Demo-Role':'operator','X-Demo-Actor':encodeURIComponent('赵工/A045'),...options.headers}});const payload=await response.json();if(!response.ok)throw new Error(payload.error||`接口错误 ${response.status}`);return payload;}
   function toast(message,kind=''){const el=$('terminalToast');el.textContent=message;el.className=`terminal-toast show ${kind}`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='terminal-toast',2800);}

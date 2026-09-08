@@ -242,12 +242,22 @@
     text('expertTaskId', task.id); text('expertCurrentStep', task.steps[task.current_step-1]?.title || '已完成'); text('expertIncidentState', incident?`${incident.type} · 待处置`:'无未关闭异常'); text('expertProvider', session?.provider || '自建远程专家服务');
     text('expertStatusBadge', active?'协同中':session?'已归档':'未建立会话'); $('expertStatusBadge').className=`badge ${active?'badge-success':'badge-neutral'}`; $('startExpert').disabled=active;
     ['freezeFrame','drawAnnotation','sendDocument','sendAdvice','endExpert'].forEach(id => $(id).disabled=!active);
-    text('videoStatusText', active?`会话 ${session.id} · 双向音视频已连接`:session?`会话已归档 · ${session.recording_index}`:'第一视角预览 · 等待现场呼叫');
+    syncExpertFeed(active,task.id);
+    text('videoStatusText', active?`${task.device_id} 第一视角 · 实时同步`:session?`会话已归档 · ${session.recording_index}`:'等待现场呼叫');
     const annotations=session?.annotations || [], latest=annotations.at(-1), frozen=state.frozen || annotations.some(item=>item.kind==='freeze');
     $('frozenBadge').hidden=!frozen; $('expertVideoFrame').classList.toggle('frozen',frozen);
     $('annotationLayer').innerHTML = annotations.some(item=>item.kind==='annotation') ? '<div class="annotation-box"><span>核对接口与标识</span></div>' : '';
     const items=[]; if(session) items.push({at:session.started_at,text:`连接${session.expert}，已自动携带工单、工序和异常上下文。`}); annotations.forEach(item=>items.push({at:item.created_at,text:item.payload.text})); if(session?.ended_at) items.push({at:session.ended_at,text:`会话已结束，录像索引 ${session.recording_index} 已归档。`});
     $('expertTimeline').innerHTML=items.length?items.map(item=>`<div class="expert-event"><time>${fmtTime(item.at)}</time><p>${esc(item.text)}</p></div>`).join(''):'<div class="empty-state">AR端发起请求后，专家可接入、冻屏标注、发送资料并填写处置意见</div>';
+  }
+
+  function syncExpertFeed(active,taskId) {
+    const frame=$('expertArFeed'), waiting=$('expertFeedWaiting');
+    if(!frame||!waiting)return;
+    if(!active){frame.hidden=true;waiting.hidden=false;return;}
+    const expected=`terminal.html?task_id=${encodeURIComponent(taskId)}&view=expert-feed`;
+    if(!frame.getAttribute('src')?.includes(`task_id=${encodeURIComponent(taskId)}`))frame.src=expected;
+    frame.hidden=false;waiting.hidden=true;
   }
 
   function renderMaintenance() {
