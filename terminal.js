@@ -2,14 +2,17 @@
   'use strict';
   const $=id=>document.getElementById(id);
   const params=new URLSearchParams(location.search),taskId=params.get('task_id')||'WO-HYD-2026-0828-017';
-  let data=null,toastTimer;
+  const expertFeed=params.get('view')==='expert-feed';
+  let data=null,toastTimer,viewSyncTimer,pendingViewState;
   if(params.get('embed')==='1')document.body.classList.add('embedded');
-  if(params.get('view')==='expert-feed')document.body.classList.add('expert-feed');
+  if(expertFeed)document.body.classList.add('expert-feed');
   const esc=value=>String(value??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   async function api(path,options={}){const response=await fetch(path,{...options,headers:{'Content-Type':'application/json','X-Demo-Role':'operator','X-Demo-Actor':encodeURIComponent('赵工/A045'),...options.headers}});const payload=await response.json();if(!response.ok)throw new Error(payload.error||`接口错误 ${response.status}`);return payload;}
   function toast(message,kind=''){const el=$('terminalToast');el.textContent=message;el.className=`terminal-toast show ${kind}`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.className='terminal-toast',2800);}
   function statusLabel(status){return {draft:'等待下发',running:'执行中',paused:'异常暂停',pending:'待领取',completed:'整架已完工'}[status]||status;}
   async function refresh(){try{data=await api(`/api/bootstrap?task_id=${encodeURIComponent(taskId)}`);render();}catch(error){toast(error.message,'danger');}}
+  async function pushViewState(){viewSyncTimer=null;if(!pendingViewState)return;const current=pendingViewState;pendingViewState=null;try{await api(`/api/tasks/${encodeURIComponent(taskId)}/view-state`,{method:'POST',body:JSON.stringify({...current,device_id:data?.device?.id||''})});}catch(error){console.warn('AR视角同步失败',error.message);}}
+  async function pullViewState(){try{const current=await api(`/api/tasks/${encodeURIComponent(taskId)}/view-state`);dispatchEvent(new CustomEvent('ar-view-synced',{detail:current}));}catch(error){console.warn('AR视角读取失败',error.message);}}
   function render(){
     const task=data.task,device=data.device,step=task.steps[task.current_step-1]||task.steps.at(-1),executable=['running','paused'].includes(task.status),requiresPart=task.current_step<=6;
     text('terminalId',`${device.id} · ${device.name}`);text('terminalBattery',`${device.battery}%`);text('terminalTask',task.id);text('terminalProduct',`${task.product} / ${task.station}`);text('terminalOperator',task.operator);text('terminalProgress',`${task.current_step} / ${task.steps.length}`);text('terminalStatus',statusLabel(task.status));
@@ -37,5 +40,7 @@
   async function submitIncident(event){if(event.submitter?.value==='cancel')return;event.preventDefault();try{await api('/api/incidents',{method:'POST',body:JSON.stringify({task_id:data.task.id,type:$('terminalIncidentType').value,description:$('terminalIncidentDescription').value,step_no:data.task.current_step}),headers:{'Idempotency-Key':`ar-incident-${Date.now()}`}});$('terminalIncidentDialog').close();await refresh();toast('异常已上报，当前工单暂停并通知远程专家。','danger');}catch(error){toast(error.message,'danger');}}
 
   $('terminalClaim').onclick=claimWorkOrder;$('terminalScan').onclick=openPartScan;$('terminalPhoto').onclick=capture;$('terminalConfirm').onclick=confirmProcess;$('terminalPause').onclick=()=>workOrderAction(data.task.status==='paused'?'resume':'pause');$('terminalBack').onclick=()=>workOrderAction('back');$('terminalAi').onclick=()=>$('aiDialog').showModal();$('terminalMaintenance').onclick=()=>$('terminalMaintenanceDialog').showModal();$('terminalIncident').onclick=()=>$('terminalIncidentDialog').showModal();$('terminalAiForm').onsubmit=askKnowledge;$('terminalMaintenanceForm').onsubmit=queryMaintenance;$('terminalIncidentForm').onsubmit=submitIncident;$('partScanForm').onsubmit=identifyPart;$('partScenario').onchange=()=>{$('partCodeInput').value=scenarioCode();};
+  addEventListener('ar-view-changed',event=>{if(expertFeed)return;pendingViewState=event.detail;if(!viewSyncTimer)viewSyncTimer=setTimeout(pushViewState,100);});
+  if(expertFeed){pullViewState();setInterval(pullViewState,250);}
   setInterval(()=>text('terminalClock',new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',hour12:false})),1000);setInterval(refresh,5000);refresh();
 })();

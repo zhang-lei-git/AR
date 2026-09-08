@@ -277,6 +277,7 @@ class DemoDB:
             CREATE TABLE IF NOT EXISTS ai_interactions(id TEXT PRIMARY KEY,task_id TEXT,step_no INTEGER,question TEXT,answer TEXT,citations TEXT,refused INTEGER,model TEXT,kb_version TEXT,latency_ms INTEGER,created_at TEXT,actor TEXT);
             CREATE TABLE IF NOT EXISTS collaboration_sessions(id TEXT PRIMARY KEY,task_id TEXT,incident_id TEXT,status TEXT,expert TEXT,provider TEXT,recording_index TEXT,started_at TEXT,ended_at TEXT);
             CREATE TABLE IF NOT EXISTS annotations(id TEXT PRIMARY KEY,session_id TEXT,kind TEXT,payload TEXT,created_at TEXT,actor TEXT);
+            CREATE TABLE IF NOT EXISTS ar_view_states(task_id TEXT PRIMARY KEY,rotation_x REAL,rotation_y REAL,camera_distance REAL,device_id TEXT,updated_at TEXT);
             CREATE TABLE IF NOT EXISTS maintenance_cases(id TEXT PRIMARY KEY,equipment TEXT,component TEXT,symptom TEXT,cause TEXT,resolution TEXT,parts TEXT,source_task TEXT,status TEXT,created_at TEXT);
             CREATE TABLE IF NOT EXISTS spatial_anchors(id TEXT PRIMARY KEY,station TEXT,label TEXT,method TEXT,x REAL,y REAL,z REAL,error_mm REAL,status TEXT,updated_at TEXT);
             CREATE TABLE IF NOT EXISTS events(id TEXT PRIMARY KEY,task_id TEXT,type TEXT,title TEXT,detail TEXT,actor TEXT,source TEXT,created_at TEXT);
@@ -287,7 +288,7 @@ class DemoDB:
             """)
             version = c.execute("SELECT value FROM metadata WHERE key='demo_data_version'").fetchone()
             if not version or version[0] != DEMO_DATA_VERSION:
-                for table in ("annotations", "collaboration_sessions", "maintenance_cases", "ai_interactions", "incidents", "part_identifications", "field_observations", "events", "step_executions", "tasks", "process_steps", "process_versions", "knowledge_assets", "knowledge", "spatial_anchors", "devices", "plugins", "idempotency"):
+                for table in ("annotations", "collaboration_sessions", "ar_view_states", "maintenance_cases", "ai_interactions", "incidents", "part_identifications", "field_observations", "events", "step_executions", "tasks", "process_steps", "process_versions", "knowledge_assets", "knowledge", "spatial_anchors", "devices", "plugins", "idempotency"):
                     c.execute(f"DELETE FROM {table}")
                 self._seed(c)
                 c.execute("INSERT OR REPLACE INTO metadata VALUES('demo_data_version',?)", (DEMO_DATA_VERSION,))
@@ -517,6 +518,33 @@ class DemoDB:
             c.execute("UPDATE tasks SET status='pending',operator='待领取',device_id=?,updated_at=? WHERE id=?", (device_id, now, task_id))
             self._event(c, task_id, "WORK_ORDER_DISPATCHED", "装配工单已下发到现场", f"工单已发送至{device_id}，等待操作员扫码领取。", actor, "work-order-service")
         return {"ok": True, "task": self.bootstrap(task_id)["task"]}
+
+    def view_state(self, task_id):
+        with self.connect() as c:
+            if not c.execute("SELECT 1 FROM tasks WHERE id=?", (task_id,)).fetchone():
+                raise ValueError("工单不存在")
+            row = c.execute("SELECT * FROM ar_view_states WHERE task_id=?", (task_id,)).fetchone()
+        return dict(row) if row else {
+            "task_id": task_id, "rotation_x": -0.05, "rotation_y": -0.48,
+            "camera_distance": 15.4, "device_id": "", "updated_at": None,
+        }
+
+    def save_view_state(self, task_id, data):
+        try:
+            rotation_x = max(-0.42, min(0.28, float(data.get("rotation_x", -0.05))))
+            rotation_y = max(-100.0, min(100.0, float(data.get("rotation_y", -0.48))))
+            camera_distance = max(7.0, min(17.0, float(data.get("camera_distance", 15.4))))
+        except (TypeError, ValueError):
+            raise ValueError("AR视角参数格式不正确")
+        with self.lock, self.connect() as c:
+            if not c.execute("SELECT 1 FROM tasks WHERE id=?", (task_id,)).fetchone():
+                raise ValueError("工单不存在")
+            now = utc_now()
+            c.execute("""INSERT INTO ar_view_states VALUES(?,?,?,?,?,?)
+                ON CONFLICT(task_id) DO UPDATE SET rotation_x=excluded.rotation_x,rotation_y=excluded.rotation_y,
+                camera_distance=excluded.camera_distance,device_id=excluded.device_id,updated_at=excluded.updated_at""",
+                (task_id, rotation_x, rotation_y, camera_distance, str(data.get("device_id", "")), now))
+        return self.view_state(task_id)
 
     def create_task(self, data, actor):
         required = {"product": "产品名称", "model": "产品型号", "station": "装配工位", "device_id": "目标终端", "process_version": "工艺版本"}
@@ -953,6 +981,7 @@ OPENAPI = {
         "/tasks/{taskId}/dispatch": {"post": {"summary": "管理端下发工单"}},
         "/tasks/{taskId}/claim": {"post": {"summary": "AR端扫码领取工单"}},
         "/tasks/{taskId}/observations": {"post": {"summary": "眼镜端回传现场采集数据"}},
+        "/tasks/{taskId}/view-state": {"get": {"summary": "读取AR端三维视角"}, "post": {"summary": "同步AR端三维视角"}},
         "/tasks/{taskId}/parts/identify": {"post": {"summary": "识别零部件编码并校验型号、工单、工序和BOM"}},
         "/tasks/{taskId}/steps/{stepNo}/confirm": {"post": {"summary": "确认当前主要工序", "parameters": [{"name": "Idempotency-Key", "in": "header", "required": True}]}},
         "/tasks/{taskId}/action": {"post": {"summary": "暂停、恢复或回退工单"}},
@@ -1045,6 +1074,8 @@ class DemoHandler(BaseHTTPRequestHandler):
                 payload = self.db.bootstrap(query.get("task_id", [DEFAULT_TASK_ID])[0])
                 payload["integrations"] = self.server.integrations.status()
                 return self.send_json(payload)
+            if len(parts) == 4 and parts[:2] == ["api", "tasks"] and parts[3] == "view-state":
+                return self.send_json(self.db.view_state(parts[2]))
             if parsed.path == "/api/integrations":
                 return self.send_json(self.server.integrations.status())
             if parsed.path == "/api/maintenance/cases":
@@ -1084,6 +1115,7 @@ class DemoHandler(BaseHTTPRequestHandler):
         try:
             data = self.json_body()
             parts = [p for p in path.split("/") if p]
+            audit_request = True
             if path == "/api/tasks":
                 self.require("dispatch"); result = self.db.create_task(data, self.actor())
             elif path == "/api/processes":
@@ -1097,6 +1129,8 @@ class DemoHandler(BaseHTTPRequestHandler):
                 self.require("claim"); result = self.db.claim_task(parts[2], data, self.actor())
             elif len(parts) == 4 and parts[:2] == ["api", "tasks"] and parts[3] == "observations":
                 self.require("capture"); result = self.db.add_observation(parts[2], data, self.actor())
+            elif len(parts) == 4 and parts[:2] == ["api", "tasks"] and parts[3] == "view-state":
+                self.require("capture"); result = self.db.save_view_state(parts[2], data); audit_request = False
             elif len(parts) == 5 and parts[:2] == ["api", "tasks"] and parts[3:] == ["parts", "identify"]:
                 self.require("capture"); result = self.db.identify_part(parts[2], data, self.actor())
             elif len(parts) == 4 and parts[:2] == ["api", "tasks"] and parts[3] == "action":
@@ -1135,7 +1169,8 @@ class DemoHandler(BaseHTTPRequestHandler):
                 result = self.db.reset() | {"task_id": DEFAULT_TASK_ID}
             else:
                 return self.send_json({"error": "API不存在", "code": "NOT_FOUND"}, 404)
-            self.db.audit(self.role(), self.actor(), "POST", path, "success")
+            if audit_request:
+                self.db.audit(self.role(), self.actor(), "POST", path, "success")
             self.send_json(result)
         except PermissionError as e:
             self.db.audit(self.role(), self.actor(), "POST", path, "denied", str(e)); self.send_json({"error": str(e), "code": "FORBIDDEN"}, 403)

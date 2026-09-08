@@ -197,6 +197,18 @@ class ApiTestCase(unittest.TestCase):
         _, data = self.request("/api/bootstrap")
         self.assertTrue(any(item["id"] == created["id"] and item["status"] == "待审核" for item in data["maintenanceCases"]))
 
+    def test_08b_ar_view_state_is_shared_by_work_order(self):
+        self.reset()
+        status, initial = self.request(f"/api/tasks/{DEFAULT_ID}/view-state")
+        self.assertEqual((status, initial["rotation_x"], initial["rotation_y"]), (200, -0.05, -0.48))
+        status, saved = self.request(f"/api/tasks/{DEFAULT_ID}/view-state", "POST", {
+            "rotation_x": 0.18, "rotation_y": 1.24, "camera_distance": 9.6, "device_id": "AR-01",
+        })
+        self.assertEqual(status, 200)
+        self.assertEqual((saved["rotation_x"], saved["rotation_y"], saved["camera_distance"], saved["device_id"]), (0.18, 1.24, 9.6, "AR-01"))
+        _, loaded = self.request(f"/api/tasks/{DEFAULT_ID}/view-state")
+        self.assertEqual((loaded["rotation_y"], loaded["camera_distance"]), (1.24, 9.6))
+
     def test_09_create_work_order_and_process_snapshot(self):
         self.reset()
         payload = {"product":"液压支架第021架","model":"ZZ18000/35/70D","station":"总装一线 · ZP-07","process_version":"V3.0","device_id":"AR-02"}

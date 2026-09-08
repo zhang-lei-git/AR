@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07151d"><title>AR眼镜端模拟器</title><link rel="stylesheet" href="terminal.css?v=26"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07151d"><title>AR眼镜端模拟器</title><link rel="stylesheet" href="terminal.css?v=27"></head>
 <body>
   <main class="terminal-shell">
     <header class="terminal-top"><div><span class="live-dot"></span><strong>AR眼镜端模拟器</strong><small id="terminalId">终端连接中</small></div><div><span id="terminalClock">--:--</span><span id="terminalBattery">--%</span><a id="backToManagement" href="index.html">返回管理端</a></div></header>
@@ -15,5 +15,5 @@
   <dialog id="terminalMaintenanceDialog"><form id="terminalMaintenanceForm" method="dialog"><header><div><span>维修知识</span><h2>查询相似案例</h2></div><button value="cancel">×</button></header><div id="terminalMaintenanceResult" class="terminal-result">输入设备、部件或故障现象，查询历史案例和处置方案。</div><label>故障现象<textarea id="terminalMaintenanceInput" rows="2">高压胶管接头处渗漏</textarea></label><footer><button value="cancel">取消</button><button class="terminal-primary" value="default">查询案例</button></footer></form></dialog>
   <dialog id="partScanDialog"><form id="partScanForm" method="dialog"><header><div><span>零部件识别与装配防错</span><h2>编码识别及业务校验</h2></div><button value="cancel">×</button></header><label>演示场景<select id="partScenario"><option value="match">正确零部件</option><option value="wrong-model">错误型号</option><option value="wrong-order">属于其他工单</option><option value="wrong-step">不属于当前工序</option><option value="unreadable">编码无法识别</option></select></label><label>扫描或录入编码<input id="partCodeInput" autocomplete="off"></label><div id="partScanResult" class="part-scan-result">系统将校验产品型号、装配工单、当前工序和BOM关系。</div><footer><button value="cancel">取消</button><button class="terminal-primary" value="default">识别并校验</button></footer></form></dialog>
   <dialog id="terminalIncidentDialog"><form id="terminalIncidentForm" method="dialog"><header><div><span>异常上报</span><h2>暂停当前装配工单</h2></div><button value="cancel">×</button></header><label>异常类型<select id="terminalIncidentType"><option>胶管标识与接口清单不一致</option><option>结构件编码无法识别</option><option>部件外观或清洁状态异常</option><option>工艺内容疑问</option></select></label><label>现场描述<textarea id="terminalIncidentDescription" rows="3">扫描胶管后匹配结果与现场标识不一致，已停止连接并保留现场。</textarea></label><footer><button value="cancel">取消</button><button class="terminal-danger" value="default">提交并通知专家</button></footer></form></dialog>
-  <div id="terminalToast" class="terminal-toast"></div><script type="module" src="three-viewer.js?v=25"></script><script src="terminal.js?v=26"></script>
+  <div id="terminalToast" class="terminal-toast"></div><script type="module" src="three-viewer.js?v=27"></script><script src="terminal.js?v=27"></script>
 </body></html>
